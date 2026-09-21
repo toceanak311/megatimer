@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Mega Timers">
+    <title>Super Multi-Timer & Stopwatch</title>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Canvas Confetti for Celebrations -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Outfit:wght@600;800;900&display=swap" rel="stylesheet">
+
+    <style>
+        * {
+            font-family: 'Fredoka', cursive, sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .font-digits {
+            font-family: 'Outfit', monospace, sans-serif;
+            font-variant-numeric: tabular-nums;
+        }
+
+        @keyframes bounce-slow {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-6px) rotate(3deg); }
+        }
+
+        @keyframes alarm-flash {
+            0%, 100% { background-color: #ec4899; }
+            50% { background-color: #8b5cf6; }
+        }
+
+        .animate-mascot {
+            animation: bounce-slow 3s ease-in-out infinite;
+        }
+
+        .animate-alarm {
+            animation: alarm-flash 0.5s infinite;
+        }
+
+        .btn-bounce {
+            transition: transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.15s ease;
+        }
+
+        .btn-bounce:active {
+            transform: scale(0.92);
+        }
+
+        /* Hide Scrollbar for horizontal tabs while preserving scroll functionality */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        /* Custom Scrollbar for Lap list */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.4);
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 min-h-screen text-white flex flex-col justify-between overflow-x-hidden p-3 sm:p-5 pb-8">
+
+    <!-- Top Header -->
+    <header class="max-w-md mx-auto w-full flex items-center justify-between pt-1 pb-2">
+        <div class="flex items-center space-x-3">
+            <div id="mascot" class="w-12 h-12 bg-yellow-400 rounded-2xl border-4 border-yellow-200 flex items-center justify-center shadow-lg animate-mascot cursor-pointer" onclick="triggerMascotSound()">
+                <svg class="w-8 h-8 text-yellow-900" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 100 2h1z" clip-rule="evenodd"></path>
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-2xl font-black tracking-wide drop-shadow-md leading-none">SUPER TIMERS</h1>
+                <p id="appSubtitle" class="text-xs font-semibold text-pink-200 tracking-wider uppercase mt-1">Up to 10 Timers + Stopwatch!</p>
+            </div>
+        </div>
+
+        <button id="soundToggleBtn" onclick="toggleSound()" class="bg-white/20 hover:bg-white/30 backdrop-blur-md p-3 rounded-2xl border-2 border-white/40 shadow-md btn-bounce flex items-center justify-center">
+            <i id="soundIcon" class="fa-solid fa-volume-high text-xl text-yellow-300"></i>
+        </button>
+    </header>
+
+    <!-- Main Mode Tab Switcher -->
+    <div class="max-w-md mx-auto w-full my-2">
+        <div class="bg-black/25 p-1.5 rounded-3xl backdrop-blur-md border border-white/20 flex space-x-2">
+            <button id="tabModeTimersBtn" onclick="switchMainMode('timers')" class="flex-1 py-2.5 rounded-2xl text-base font-bold transition-all duration-300 flex items-center justify-center space-x-2 bg-yellow-400 text-yellow-950 shadow-lg">
+                <i class="fa-solid fa-hourglass-half"></i>
+                <span id="timersTabLabel">Timers (1)</span>
+            </button>
+            <button id="tabModeStopwatchBtn" onclick="switchMainMode('stopwatch')" class="flex-1 py-2.5 rounded-2xl text-base font-bold transition-all duration-300 flex items-center justify-center space-x-2 text-white hover:bg-white/10">
+                <i class="fa-solid fa-stopwatch"></i>
+                <span>Stopwatch</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- MAIN DISPLAY CONTENT CONTAINER -->
+    <main class="max-w-md mx-auto w-full flex-1 flex flex-col justify-center my-1">
+
+        <!-- ==================== MULTI-TIMER SECTION ==================== -->
+        <div id="timersModeSection" class="flex flex-col items-center w-full">
+
+            <!-- Multi-Timer Horizontal Tab Carousel -->
+            <div class="w-full flex items-center space-x-2 mb-2">
+                <button onclick="navigateTimer(-1)" class="p-2.5 bg-white/15 rounded-2xl border border-white/20 hover:bg-white/25 btn-bounce text-yellow-300">
+                    <i class="fa-solid fa-chevron-left text-lg"></i>
+                </button>
+
+                <div id="timerTabsContainer" class="flex-1 flex space-x-2 overflow-x-auto no-scrollbar py-1 px-1">
+                    <!-- Dynamic Timer Badges injected here -->
+                </div>
+
+                <button onclick="navigateTimer(1)" class="p-2.5 bg-white/15 rounded-2xl border border-white/20 hover:bg-white/25 btn-bounce text-yellow-300">
+                    <i class="fa-solid fa-chevron-right text-lg"></i>
+                </button>
+
+                <button onclick="addNewTimer()" id="addTimerBtn" title="Add Timer (Max 10)" class="p-2.5 bg-emerald-400 text-emerald-950 rounded-2xl border-2 border-emerald-200 font-extrabold btn-bounce shadow-md">
+                    <i class="fa-solid fa-plus text-lg"></i>
+                </button>
+            </div>
+
+            <!-- Active Timer Card Container (Supports Touch Swiping) -->
+            <div id="activeTimerCard" class="w-full flex flex-col items-center bg-black/20 backdrop-blur-xl p-4 rounded-3xl border-2 border-white/20 shadow-2xl relative">
+                
+                <!-- Timer Header & Title Editable Input -->
+                <div class="w-full flex items-center justify-between px-2 mb-1">
+                    <div class="flex items-center space-x-2 flex-1 mr-2">
+                        <i class="fa-solid fa-pen-to-square text-yellow-300 text-xs opacity-70"></i>
+                        <input type="text" id="timerNameInput" onchange="updateActiveTimerName(this.value)" class="bg-transparent font-bold text-lg text-yellow-200 border-b border-dashed border-white/30 focus:border-yellow-300 focus:outline-none w-full" value="Timer 1">
+                    </div>
+
+                    <div class="flex items-center space-x-2">
+                        <!-- Status Badge -->
+                        <span id="activeTimerBadge" class="text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-gray-500/80 uppercase tracking-wider">
+                            READY
+                        </span>
+                        
+                        <!-- Delete Timer Button (if > 1 timer) -->
+                        <button id="deleteTimerBtn" onclick="deleteActiveTimer()" class="text-red-300 hover:text-red-100 p-1.5 rounded-xl hover:bg-red-500/30 text-sm transition-all" title="Delete Timer">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Circular Progress & Display Container -->
+                <div class="relative w-64 h-64 sm:w-72 sm:h-72 flex items-center justify-center my-1">
+                    <svg class="w-full h-full transform -rotate-90 drop-shadow-xl">
+                        <circle cx="50%" cy="50%" r="42%" class="stroke-current text-black/25" stroke-width="15" fill="transparent" />
+                        <circle id="timerProgressCircle" cx="50%" cy="50%" r="42%" class="stroke-current text-yellow-400 transition-all duration-300 ease-linear" stroke-width="15" stroke-linecap="round" fill="transparent" stroke-dasharray="753.98" stroke-dashoffset="0" />
+                    </svg>
+
+                    <!-- Center Display Box -->
+                    <div class="absolute inset-0 flex flex-col items-center justify-center text-center p-2">
+                        <span class="text-[11px] uppercase tracking-widest font-bold text-yellow-200/80 mb-0.5" id="timerStatusLabel">Time Remaining</span>
+                        
+                        <!-- Primary Pure Hours Display (HHH:MM:SS) -->
+                        <div id="timerDisplay" class="font-digits text-4xl sm:text-5xl font-black tracking-tight text-white drop-shadow-md">
+                            96:00:00
+                        </div>
+
+                        <!-- Days in Parentheses -->
+                        <div id="timerDaysSubtext" class="text-xs sm:text-sm font-semibold text-yellow-300/90 mt-1.5 bg-black/30 px-3 py-1 rounded-full border border-white/10">
+                            (4 days, 0 hours)
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Preset Buttons -->
+                <div id="timerPresets" class="grid grid-cols-4 gap-2 w-full my-2">
+                    <button onclick="addTimerHours(1)" class="bg-white/20 hover:bg-white/30 backdrop-blur-md py-1.5 px-1 rounded-2xl border border-white/30 font-bold text-sm btn-bounce shadow-md flex flex-col items-center">
+                        <span class="text-yellow-300 text-sm font-extrabold">+1h</span>
+                        <span class="text-[9px] opacity-80">1 hour</span>
+                    </button>
+                    <button onclick="addTimerHours(10)" class="bg-white/20 hover:bg-white/30 backdrop-blur-md py-1.5 px-1 rounded-2xl border border-white/30 font-bold text-sm btn-bounce shadow-md flex flex-col items-center">
+                        <span class="text-yellow-300 text-sm font-extrabold">+10h</span>
+                        <span class="text-[9px] opacity-80">10 hours</span>
+                    </button>
+                    <button onclick="addTimerHours(24)" class="bg-white/20 hover:bg-white/30 backdrop-blur-md py-1.5 px-1 rounded-2xl border border-white/30 font-bold text-sm btn-bounce shadow-md flex flex-col items-center">
+                        <span class="text-yellow-300 text-sm font-extrabold">+24h</span>
+                        <span class="text-[9px] opacity-80">1 day</span>
+                    </button>
+                    <button onclick="addTimerHours(96)" class="bg-white/20 hover:bg-white/30 backdrop-blur-md py-1.5 px-1 rounded-2xl border border-white/30 font-bold text-sm btn-bounce shadow-md flex flex-col items-center">
+                        <span class="text-yellow-300 text-sm font-extrabold">+96h</span>
+                        <span class="text-[9px] opacity-80">4 days</span>
+                    </button>
+                </div>
+
+                <!-- Custom Time Input Controls -->
+                <div id="timerInputs" class="bg-black/20 backdrop-blur-md p-2 rounded-2xl border border-white/20 w-full my-1 flex items-center justify-around">
+                    <div class="flex flex-col items-center">
+                        <label class="text-[10px] font-bold uppercase text-yellow-200">Hours</label>
+                        <input type="number" id="inputHours" min="0" max="999" value="96" class="w-20 bg-white/20 text-center text-xl font-digits font-bold rounded-xl py-0.5 border border-white/30 focus:outline-none focus:ring-2 focus:ring-yellow-300">
+                    </div>
+                    <span class="text-xl font-bold text-yellow-300 mt-3">:</span>
+                    <div class="flex flex-col items-center">
+                        <label class="text-[10px] font-bold uppercase text-yellow-200">Mins</label>
+                        <input type="number" id="inputMinutes" min="0" max="59" value="0" class="w-14 bg-white/20 text-center text-xl font-digits font-bold rounded-xl py-0.5 border border-white/30 focus:outline-none focus:ring-2 focus:ring-yellow-300">
+                    </div>
+                    <span class="text-xl font-bold text-yellow-300 mt-3">:</span>
+                    <div class="flex flex-col items-center">
+                        <label class="text-[10px] font-bold uppercase text-yellow-200">Secs</label>
+                        <input type="number" id="inputSeconds" min="0" max="59" value="0" class="w-14 bg-white/20 text-center text-xl font-digits font-bold rounded-xl py-0.5 border border-white/30 focus:outline-none focus:ring-2 focus:ring-yellow-300">
+                    </div>
+                </div>
+
+                <!-- Action Controls for Active Timer -->
+                <div class="flex items-center space-x-3 w-full mt-2">
+                    <button id="timerResetBtn" onclick="resetActiveTimer()" class="flex-1 py-3.5 bg-red-500/80 hover:bg-red-500 rounded-2xl font-bold text-base border-2 border-red-300 shadow-xl btn-bounce flex items-center justify-center space-x-1.5">
+                        <i class="fa-solid fa-rotate-right"></i>
+                        <span>Reset</span>
+                    </button>
+                    
+                    <button id="timerStartPauseBtn" onclick="toggleActiveTimer()" class="flex-[2] py-3.5 bg-emerald-400 hover:bg-emerald-300 text-emerald-950 rounded-2xl font-black text-xl border-2 border-emerald-200 shadow-xl btn-bounce flex items-center justify-center space-x-2">
+                        <i id="timerStartIcon" class="fa-solid fa-play text-xl"></i>
+                        <span id="timerStartText">START</span>
+                    </button>
+                </div>
+            </div>
+            
+            <p class="text-[11px] text-yellow-200/70 mt-2 text-center">💡 Swipe left/right on card to switch timers!</p>
+        </div>
+
+        <!-- ==================== STOPWATCH SECTION ==================== -->
+        <div id="stopwatchModeSection" class="hidden flex-col items-center w-full">
+            <div class="bg-black/25 backdrop-blur-xl p-6 rounded-3xl border-2 border-white/20 w-full text-center my-3 shadow-2xl flex flex-col items-center">
+                <span class="text-xs uppercase tracking-widest font-bold text-cyan-200 mb-2">Elapsed Stopwatch Time</span>
+                
+                <!-- Main Stopwatch Digits -->
+                <div id="stopwatchDisplay" class="font-digits text-4xl sm:text-5xl font-black tracking-tight text-white drop-shadow-md">
+                    00:00:00<span id="stopwatchMs" class="text-2xl text-cyan-300 font-bold">.0</span>
+                </div>
+
+                <div id="stopwatchDaysSubtext" class="text-sm font-semibold text-cyan-200/90 mt-2 bg-white/10 px-3 py-1 rounded-full border border-white/10">
+                    (0 days, 0 hours)
+                </div>
+            </div>
+
+            <!-- Stopwatch Action Controls -->
+            <div class="flex items-center space-x-3 w-full my-1">
+                <button id="stopwatchResetBtn" onclick="resetStopwatch()" class="flex-1 py-3 bg-red-500/80 hover:bg-red-500 rounded-2xl font-bold text-base border-2 border-red-300 shadow-lg btn-bounce flex items-center justify-center space-x-1">
+                    <i class="fa-solid fa-rotate-right"></i>
+                    <span>Reset</span>
+                </button>
+                
+                <button id="stopwatchLapBtn" onclick="recordLap()" class="flex-1 py-3 bg-purple-500/80 hover:bg-purple-500 rounded-2xl font-bold text-base border-2 border-purple-300 shadow-lg btn-bounce flex items-center justify-center space-x-1">
+                    <i class="fa-solid fa-flag"></i>
+                    <span>Lap</span>
+                </button>
+
+                <button id="stopwatchStartPauseBtn" onclick="toggleStopwatch()" class="flex-[1.5] py-3 bg-cyan-400 hover:bg-cyan-300 text-cyan-950 rounded-2xl font-black text-lg border-2 border-cyan-200 shadow-xl btn-bounce flex items-center justify-center space-x-2">
+                    <i id="stopwatchStartIcon" class="fa-solid fa-play"></i>
+                    <span id="stopwatchStartText">START</span>
+                </button>
+            </div>
+
+            <!-- Laps Container -->
+            <div class="w-full mt-3 bg-black/20 backdrop-blur-md rounded-2xl p-3 border border-white/15 h-40 flex flex-col">
+                <div class="flex justify-between text-xs font-bold text-cyan-200 uppercase px-2 pb-2 border-b border-white/10">
+                    <span>Lap #</span>
+                    <span>Lap Time</span>
+                    <span>Total Time</span>
+                </div>
+                <div id="lapsList" class="overflow-y-auto flex-1 mt-1 space-y-1">
+                    <div id="noLapsNotice" class="text-center text-white/50 text-xs my-6">No laps recorded yet!</div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <footer class="max-w-md mx-auto w-full text-center text-xs text-white/70 pt-2">
+        <span>⭐️ All 10 timers count accurately in background! ⭐️</span>
+    </footer>
+
+    <!-- ==================== JAVASCRIPT LOGIC ==================== -->
+    <script>
+        /* --- AUDIO SYNTHESIS ENGINE (Web Audio API) --- */
+        let audioCtx = null;
+        let isMuted = false;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        function playBeep(freq = 600, duration = 0.15, type = 'sine') {
+            if (isMuted) return;
+            try {
+                initAudio();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            } catch (e) { console.log(e); }
+        }
+
+        function playCelebrationSound() {
+            if (isMuted) return;
+            try {
+                initAudio();
+                const notes = [523.25, 659.25, 783.99, 1046.50, 783.99, 1046.50];
+                notes.forEach((freq, index) => {
+                    setTimeout(() => {
+                        playBeep(freq, 0.25, 'triangle');
+                    }, index * 150);
+                });
+            } catch (e) { console.log(e); }
+        }
+
+        function triggerMascotSound() {
+            playBeep(880, 0.1, 'sine');
+            setTimeout(() => playBeep(1174.66, 0.2, 'sine'), 100);
+            const mascot = document.getElementById('mascot');
+            mascot.classList.add('scale-125');
+            setTimeout(() => mascot.classList.remove('scale-125'), 300);
+        }
+
+        function toggleSound() {
+            isMuted = !isMuted;
+            const soundIcon = document.getElementById('soundIcon');
+            if (isMuted) {
+                soundIcon.className = 'fa-solid fa-volume-xmark text-xl text-red-300';
+            } else {
+                soundIcon.className = 'fa-solid fa-volume-high text-xl text-yellow-300';
+                playBeep(800, 0.1);
+            }
+        }
+
+        /* --- GLOBAL APPLICATION STATE --- */
+        let activeTimerIndex = 0;
+        
+        // Array of up to 10 independent timer objects
+        let timersData = [
+            {
+                id: 'timer-1',
+                name: '96-Hr Quest',
+                isRunning: false,
+                durationMs: 96 * 3600 * 1000,
+                remainingMs: 96 * 3600 * 1000,
+                endTimeStamp: null,
+                isFinished: false
+            }
+        ];
+
+        let masterTimerTicker = null;
+
+        let stopwatchState = {
+            isRunning: false,
+            elapsedMs: 0,
+            startTimeStamp: null,
+            laps: []
+        };
+        let stopwatchTicker = null;
+
+        /* --- LOCAL STORAGE PERSISTENCE --- */
+        function saveState() {
+            localStorage.setItem('superTimer_multiTimersData', JSON.stringify(timersData));
+            localStorage.setItem('superTimer_activeTimerIndex', JSON.stringify(activeTimerIndex));
+            localStorage.setItem('superTimer_stopwatchState', JSON.stringify(stopwatchState));
+        }
+
+        function loadState() {
+            const savedTimers = localStorage.getItem('superTimer_multiTimersData');
+            if (savedTimers) {
+                timersData = JSON.parse(savedTimers);
+            }
+
+            const savedIdx = localStorage.getItem('superTimer_activeTimerIndex');
+            if (savedIdx !== null) {
+                activeTimerIndex = parseInt(savedIdx) || 0;
+                if (activeTimerIndex >= timersData.length) activeTimerIndex = 0;
+            }
+
+            const savedStopwatch = localStorage.getItem('superTimer_stopwatchState');
+            if (savedStopwatch) {
+                stopwatchState = JSON.parse(savedStopwatch);
+            }
+        }
+
+        /* --- MODE SWITCHING (Timers vs Stopwatch) --- */
+        function switchMainMode(mode) {
+            playBeep(500, 0.05);
+            const timersModeSection = document.getElementById('timersModeSection');
+            const stopwatchModeSection = document.getElementById('stopwatchModeSection');
+            const tabModeTimersBtn = document.getElementById('tabModeTimersBtn');
+            const tabModeStopwatchBtn = document.getElementById('tabModeStopwatchBtn');
+            const appSubtitle = document.getElementById('appSubtitle');
+
+            if (mode === 'timers') {
+                timersModeSection.classList.remove('hidden');
+                stopwatchModeSection.classList.add('hidden');
+                stopwatchModeSection.classList.remove('flex');
+                
+                tabModeTimersBtn.className = 'flex-1 py-2.5 rounded-2xl text-base font-bold transition-all duration-300 flex items-center justify-center space-x-2 bg-yellow-400 text-yellow-950 shadow-lg';
+                tabModeStopwatchBtn.className = 'flex-1 py-2.5 rounded-2xl text-base font-bold transition-all duration-300 flex items-center justify-center space-x-2 text-white hover:bg-white/10';
+                appSubtitle.textContent = 'Up to 10 Timers + Stopwatch!';
+            } else {
+                timersModeSection.classList.add('hidden');
+                stopwatchModeSection.classList.remove('hidden');
+                stopwatchModeSection.classList.add('flex');
+
+                tabModeStopwatchBtn.className = 'flex-1 py-2.5 rounded-2xl text-base font-bold transition-all duration-300 flex items-center justify-center space-x-2 bg-cyan-400 text-cyan-950 shadow-lg';
+                tabModeTimersBtn.className = 'flex-1 py-2.5 rounded-2xl text-base font-bold transition-all duration-300 flex items-center justify-center space-x-2 text-white hover:bg-white/10';
+                appSubtitle.textContent = 'Count up forever!';
+            }
+        }
+
+        /* --- MULTI-TIMER MANAGEMENT --- */
+        function addNewTimer() {
+            if (timersData.length >= 10) {
+                playBeep(300, 0.2, 'sawtooth');
+                return;
+            }
+            playBeep(700, 0.1);
+
+            const newNum = timersData.length + 1;
+            timersData.push({
+                id: 'timer-' + Date.now(),
+                name: `Timer ${newNum}`,
+                isRunning: false,
+                durationMs: 24 * 3600 * 1000, // Default 24 hrs
+                remainingMs: 24 * 3600 * 1000,
+                endTimeStamp: null,
+                isFinished: false
+            });
+
+            activeTimerIndex = timersData.length - 1;
+            saveState();
+            renderAllTimersUI();
+        }
+
+        function deleteActiveTimer() {
+            if (timersData.length <= 1) return; // Always keep at least 1 timer
+            playBeep(400, 0.1);
+
+            timersData.splice(activeTimerIndex, 1);
+            if (activeTimerIndex >= timersData.length) {
+                activeTimerIndex = timersData.length - 1;
+            }
+
+            saveState();
+            renderAllTimersUI();
+        }
+
+        function selectTimerIndex(index) {
+            if (index < 0 || index >= timersData.length) return;
+            playBeep(550, 0.05);
+            activeTimerIndex = index;
+            saveState();
+            renderAllTimersUI();
+        }
+
+        function navigateTimer(direction) {
+            let nextIdx = activeTimerIndex + direction;
+            if (nextIdx < 0) nextIdx = timersData.length - 1;
+            if (nextIdx >= timersData.length) nextIdx = 0;
+            selectTimerIndex(nextIdx);
+        }
+
+        function updateActiveTimerName(newName) {
+            if (!newName.trim()) newName = `Timer ${activeTimerIndex + 1}`;
+            timersData[activeTimerIndex].name = newName.trim();
+            saveState();
+            renderTabsCarousel();
+        }
+
+        /* --- TIMER ENGINE TICKER --- */
+        function startMasterTimerTicker() {
+            if (masterTimerTicker) clearInterval(masterTimerTicker);
+            masterTimerTicker = setInterval(() => {
+                const now = Date.now();
+                let stateChanged = false;
+
+                timersData.forEach((timer) => {
+                    if (timer.isRunning) {
+                        const rem = Math.max(0, timer.endTimeStamp - now);
+                        timer.remainingMs = rem;
+                        if (rem <= 0) {
+                            timer.isRunning = false;
+                            timer.isFinished = true;
+                            stateChanged = true;
+                            
+                            // Trigger celebration if user is looking at this finished timer
+                            if (timersData[activeTimerIndex].id === timer.id) {
+                                onTimerFinished();
+                            } else {
+                                playCelebrationSound();
+                            }
+                        }
+                    }
+                });
+
+                renderActiveTimerDisplay();
+                renderTabsCarousel();
+                if (stateChanged) saveState();
+            }, 250);
+        }
+
+        /* --- ACTIVE TIMER UI RENDERING --- */
+        function renderAllTimersUI() {
+            document.getElementById('timersTabLabel').textContent = `Timers (${timersData.length})`;
+            renderTabsCarousel();
+            renderActiveTimerCard();
+        }
+
+        function renderTabsCarousel() {
+            const container = document.getElementById('timerTabsContainer');
+            const addBtn = document.getElementById('addTimerBtn');
+
+            // Hide add button if max 10 reached
+            if (timersData.length >= 10) {
+                addBtn.classList.add('opacity-40', 'pointer-events-none');
+            } else {
+                addBtn.classList.remove('opacity-40', 'pointer-events-none');
+            }
+
+            container.innerHTML = timersData.map((timer, idx) => {
+                const isActive = idx === activeTimerIndex;
+                let statusColor = 'bg-gray-400';
+                let statusText = 'READY';
+
+                if (timer.isFinished) {
+                    statusColor = 'bg-pink-500 animate-pulse';
+                    statusText = 'DONE';
+                } else if (timer.isRunning) {
+                    statusColor = 'bg-emerald-400';
+                    statusText = 'RUN';
+                } else if (timer.remainingMs < timer.durationMs) {
+                    statusColor = 'bg-amber-400';
+                    statusText = 'PAUSED';
+                }
+
+                return `
+                    <button onclick="selectTimerIndex(${idx})" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-2xl border text-xs font-bold transition-all whitespace-nowrap btn-bounce ${isActive ? 'bg-yellow-400 text-yellow-950 border-yellow-200 shadow-md scale-105' : 'bg-white/15 text-white border-white/20 hover:bg-white/25'}">
+                        <span class="w-2 h-2 rounded-full ${statusColor}"></span>
+                        <span class="max-w-[80px] truncate">${escapeHtml(timer.name)}</span>
+                    </button>
+                `;
+            }).join('');
+        }
+
+        function renderActiveTimerCard() {
+            const timer = timersData[activeTimerIndex];
+            document.getElementById('timerNameInput').value = timer.name;
+
+            // Enable/disable delete button based on timer count
+            const deleteBtn = document.getElementById('deleteTimerBtn');
+            if (timersData.length <= 1) {
+                deleteBtn.classList.add('hidden');
+            } else {
+                deleteBtn.classList.remove('hidden');
+            }
+
+            // Inputs update
+            updateTimerInputsFromDuration(timer.durationMs);
+
+            // Controls active/paused state
+            if (timer.isRunning) {
+                document.getElementById('timerStartIcon').className = 'fa-solid fa-pause text-xl';
+                document.getElementById('timerStartText').textContent = 'PAUSE';
+                document.getElementById('timerInputs').classList.add('opacity-40', 'pointer-events-none');
+                document.getElementById('timerPresets').classList.add('opacity-40', 'pointer-events-none');
+            } else {
+                document.getElementById('timerStartIcon').className = 'fa-solid fa-play text-xl';
+                document.getElementById('timerStartText').textContent = timer.remainingMs < timer.durationMs ? 'RESUME' : 'START';
+                document.getElementById('timerInputs').classList.remove('opacity-40', 'pointer-events-none');
+                document.getElementById('timerPresets').classList.remove('opacity-40', 'pointer-events-none');
+            }
+
+            if (timer.isFinished) {
+                document.getElementById('timerStatusLabel').textContent = '⏰ TIME IS UP! ⏰';
+                document.body.classList.add('animate-alarm');
+            } else {
+                document.getElementById('timerStatusLabel').textContent = 'Time Remaining';
+                document.body.classList.remove('animate-alarm');
+            }
+
+            renderActiveTimerDisplay();
+        }
+
+        function renderActiveTimerDisplay() {
+            const timer = timersData[activeTimerIndex];
+            
+            // Badge text
+            const badge = document.getElementById('activeTimerBadge');
+            if (timer.isFinished) {
+                badge.className = 'text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-pink-500 text-white uppercase tracking-wider animate-bounce';
+                badge.textContent = 'DONE 🎉';
+            } else if (timer.isRunning) {
+                badge.className = 'text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-emerald-400 text-emerald-950 uppercase tracking-wider';
+                badge.textContent = 'RUNNING';
+            } else if (timer.remainingMs < timer.durationMs) {
+                badge.className = 'text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-amber-400 text-amber-950 uppercase tracking-wider';
+                badge.textContent = 'PAUSED';
+            } else {
+                badge.className = 'text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-white/20 text-white uppercase tracking-wider';
+                badge.textContent = 'READY';
+            }
+
+            // Calculation of HHH:MM:SS
+            const totalSeconds = Math.ceil(timer.remainingMs / 1000);
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+
+            const pad = (num) => String(num).padStart(2, '0');
+            const formattedHrs = hours < 100 ? pad(hours) : String(hours);
+            
+            document.getElementById('timerDisplay').textContent = `${formattedHrs}:${pad(minutes)}:${pad(seconds)}`;
+
+            // Days Subtext
+            const days = Math.floor(hours / 24);
+            const remHours = hours % 24;
+            document.getElementById('timerDaysSubtext').textContent = `(${days} day${days === 1 ? '' : 's'}, ${remHours} hr${remHours === 1 ? '' : 's'})`;
+
+            // SVG Radial Offset
+            const progressCircle = document.getElementById('timerProgressCircle');
+            const totalCircumference = 2 * Math.PI * (0.42 * 256); // approx r=42%
+            
+            if (timer.durationMs > 0) {
+                const fraction = timer.remainingMs / timer.durationMs;
+                const strokeDashoffset = totalCircumference * (1 - fraction);
+                progressCircle.style.strokeDashoffset = Math.max(0, strokeDashoffset);
+            } else {
+                progressCircle.style.strokeDashoffset = 0;
+            }
+        }
+
+        function updateTimerInputsFromDuration(durationMs) {
+            const totalSecs = Math.floor(durationMs / 1000);
+            const hrs = Math.floor(totalSecs / 3600);
+            const mins = Math.floor((totalSecs % 3600) / 60);
+            const secs = totalSecs % 60;
+
+            document.getElementById('inputHours').value = hrs;
+            document.getElementById('inputMinutes').value = mins;
+            document.getElementById('inputSeconds').value = secs;
+        }
+
+        function readInputsToActiveTimer() {
+            const timer = timersData[activeTimerIndex];
+            if (timer.isRunning) return;
+
+            const h = parseInt(document.getElementById('inputHours').value) || 0;
+            const m = parseInt(document.getElementById('inputMinutes').value) || 0;
+            const s = parseInt(document.getElementById('inputSeconds').value) || 0;
+
+            const totalMs = ((h * 3600) + (m * 60) + s) * 1000;
+            timer.durationMs = totalMs;
+            timer.remainingMs = totalMs;
+            timer.isFinished = false;
+
+            saveState();
+            renderActiveTimerDisplay();
+            renderTabsCarousel();
+        }
+
+        function addTimerHours(hrs) {
+            playBeep(700, 0.08);
+            const timer = timersData[activeTimerIndex];
+            if (timer.isRunning) return;
+
+            const currentH = parseInt(document.getElementById('inputHours').value) || 0;
+            document.getElementById('inputHours').value = currentH + hrs;
+            readInputsToActiveTimer();
+        }
+
+        function toggleActiveTimer() {
+            playBeep(600, 0.1);
+            const timer = timersData[activeTimerIndex];
+
+            if (timer.isRunning) {
+                // Pause Active Timer
+                timer.isRunning = false;
+            } else {
+                // Start or Resume Active Timer
+                if (timer.remainingMs <= 0 || timer.remainingMs === timer.durationMs) {
+                    readInputsToActiveTimer();
+                }
+
+                if (timer.remainingMs <= 0) return;
+
+                timer.isRunning = true;
+                timer.isFinished = false;
+                timer.endTimeStamp = Date.now() + timer.remainingMs;
+                document.body.classList.remove('animate-alarm');
+            }
+
+            saveState();
+            renderAllTimersUI();
+        }
+
+        function resetActiveTimer() {
+            playBeep(400, 0.1);
+            const timer = timersData[activeTimerIndex];
+
+            timer.isRunning = false;
+            timer.isFinished = false;
+            document.body.classList.remove('animate-alarm');
+
+            readInputsToActiveTimer();
+            saveState();
+            renderAllTimersUI();
+        }
+
+        function onTimerFinished() {
+            document.body.classList.add('animate-alarm');
+            playCelebrationSound();
+            confetti({
+                particleCount: 140,
+                spread: 90,
+                origin: { y: 0.6 }
+            });
+            renderAllTimersUI();
+        }
+
+        /* --- STOPWATCH ENGINE --- */
+        function renderStopwatch() {
+            let currentElapsed = stopwatchState.elapsedMs;
+
+            if (stopwatchState.isRunning) {
+                currentElapsed = Date.now() - stopwatchState.startTimeStamp;
+                stopwatchState.elapsedMs = currentElapsed;
+            }
+
+            const totalSeconds = Math.floor(currentElapsed / 1000);
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+            const msTenths = Math.floor((currentElapsed % 1000) / 100);
+
+            const pad = (num) => String(num).padStart(2, '0');
+            const formattedHrs = hours < 100 ? pad(hours) : String(hours);
+
+            document.getElementById('stopwatchDisplay').innerHTML = `${formattedHrs}:${pad(minutes)}:${pad(seconds)}<span class="text-2xl text-cyan-300 font-bold">.${msTenths}</span>`;
+
+            const days = Math.floor(hours / 24);
+            const remHours = hours % 24;
+            document.getElementById('stopwatchDaysSubtext').textContent = `(${days} day${days === 1 ? '' : 's'}, ${remHours} hr${remHours === 1 ? '' : 's'})`;
+        }
+
+        function toggleStopwatch() {
+            playBeep(600, 0.1);
+            if (stopwatchState.isRunning) {
+                stopwatchState.isRunning = false;
+                clearInterval(stopwatchTicker);
+                document.getElementById('stopwatchStartIcon').className = 'fa-solid fa-play';
+                document.getElementById('stopwatchStartText').textContent = 'RESUME';
+            } else {
+                stopwatchState.isRunning = true;
+                stopwatchState.startTimeStamp = Date.now() - stopwatchState.elapsedMs;
+
+                document.getElementById('stopwatchStartIcon').className = 'fa-solid fa-pause';
+                document.getElementById('stopwatchStartText').textContent = 'PAUSE';
+
+                stopwatchTicker = setInterval(() => { renderStopwatch(); }, 50);
+            }
+            saveState();
+            renderStopwatch();
+        }
+
+        function resetStopwatch() {
+            playBeep(400, 0.1);
+            stopwatchState.isRunning = false;
+            clearInterval(stopwatchTicker);
+            stopwatchState.elapsedMs = 0;
+            stopwatchState.laps = [];
+
+            document.getElementById('stopwatchStartIcon').className = 'fa-solid fa-play';
+            document.getElementById('stopwatchStartText').textContent = 'START';
+
+            renderLaps();
+            saveState();
+            renderStopwatch();
+        }
+
+        function recordLap() {
+            if (stopwatchState.elapsedMs <= 0) return;
+            playBeep(750, 0.08);
+
+            const currentTotal = stopwatchState.elapsedMs;
+            const previousTotal = stopwatchState.laps.length > 0 ? stopwatchState.laps[0].totalMs : 0;
+            const lapTime = currentTotal - previousTotal;
+
+            stopwatchState.laps.unshift({
+                lapNum: stopwatchState.laps.length + 1,
+                lapMs: lapTime,
+                totalMs: currentTotal
+            });
+
+            saveState();
+            renderLaps();
+        }
+
+        function formatFormattedMs(ms) {
+            const totalSeconds = Math.floor(ms / 1000);
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+            const msTenths = Math.floor((ms % 1000) / 100);
+            const pad = (num) => String(num).padStart(2, '0');
+            return `${hours > 0 ? hours + ':' : ''}${pad(minutes)}:${pad(seconds)}.${msTenths}`;
+        }
+
+        function renderLaps() {
+            const lapsList = document.getElementById('lapsList');
+            if (stopwatchState.laps.length === 0) {
+                lapsList.innerHTML = '<div id="noLapsNotice" class="text-center text-white/50 text-xs my-6">No laps recorded yet!</div>';
+                return;
+            }
+
+            lapsList.innerHTML = stopwatchState.laps.map(lap => `
+                <div class="flex justify-between text-xs font-digits py-1 px-2 rounded-lg bg-white/10 hover:bg-white/20">
+                    <span class="font-bold text-yellow-300">#${lap.lapNum}</span>
+                    <span class="text-cyan-200">+${formatFormattedMs(lap.lapMs)}</span>
+                    <span class="text-white">${formatFormattedMs(lap.totalMs)}</span>
+                </div>
+            `).join('');
+        }
+
+        /* --- TOUCH SWIPE SUPPORT FOR TIMERS --- */
+        let touchStartX = 0;
+        let touchEndX = 0;
+
+        function setupSwipeGestures() {
+            const card = document.getElementById('activeTimerCard');
+            card.addEventListener('touchstart', (e) => {
+                touchStartX = e.changedTouches[0].screenX;
+            }, { passive: true });
+
+            card.addEventListener('touchend', (e) => {
+                touchEndX = e.changedTouches[0].screenX;
+                handleSwipeGesture();
+            }, { passive: true });
+        }
+
+        function handleSwipeGesture() {
+            const threshold = 50;
+            if (touchEndX < touchStartX - threshold) {
+                // Swiped Left -> Next Timer
+                navigateTimer(1);
+            } else if (touchEndX > touchStartX + threshold) {
+                // Swiped Right -> Previous Timer
+                navigateTimer(-1);
+            }
+        }
+
+        function escapeHtml(str) {
+            return str.replace(/[&<>"']/g, function(m) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m];
+            });
+        }
+
+        /* --- EVENT LISTENERS & INIT --- */
+        document.getElementById('inputHours').addEventListener('change', readInputsToActiveTimer);
+        document.getElementById('inputMinutes').addEventListener('change', readInputsToActiveTimer);
+        document.getElementById('inputSeconds').addEventListener('change', readInputsToActiveTimer);
+
+        window.onload = function () {
+            loadState();
+            startMasterTimerTicker();
+
+            // Resume Stopwatch ticker if running
+            if (stopwatchState.isRunning) {
+                stopwatchTicker = setInterval(() => { renderStopwatch(); }, 50);
+                document.getElementById('stopwatchStartIcon').className = 'fa-solid fa-pause';
+                document.getElementById('stopwatchStartText').textContent = 'PAUSE';
+            }
+
+            renderAllTimersUI();
+            renderStopwatch();
+            renderLaps();
+            setupSwipeGestures();
+        };
+    </script>
+</body>
+</html>
